@@ -10,15 +10,15 @@ CustomHID_::CustomHID_()
 
 int CustomHID_::getInterface(uint8_t* interfaceCount) {
   *interfaceCount += 1;
-  // Интерфейсный дескриптор (9 байт)
+  // Interface descriptor (9 bytes)
   uint8_t interfaceDesc[] = {
     9, 4, pluggedInterface, 0x00, 1, 0x03, 0x00, 0x00, 0
   };
-  // HID дескриптор (9 байт)
+  // HID descriptor (9 bytes)
   uint8_t hidDesc[] = {
     9, 0x21, 0x11, 0x01, 0x00, 0x01, 0x22, (uint8_t)(sizeof(customHIDReportDescriptor)), (uint8_t)(sizeof(customHIDReportDescriptor) >> 8)
   };
-  // Endpoint IN (7 байт)
+  // Endpoint IN (7 bytes)
   uint8_t epInDesc[] = {
     7, 5, (uint8_t)(0x80 | pluggedEndpoint), 0x03, USB_EP_SIZE, 0, 0x01
   };
