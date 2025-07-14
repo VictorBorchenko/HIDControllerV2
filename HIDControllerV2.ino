@@ -17,8 +17,9 @@
 #define PIN_LED_G 11
 #define PIN_LED_B 13
 
-#define HOLD_FOR_LED_MS 3000
-#define LED_FLASH_MS 100
+#define PIN_LED2 9 // Status LED
+
+// #define HOLD_FOR_LED_MS 3000
 
 CustomHID_ CustomHID;
 
@@ -27,10 +28,10 @@ Button btns[6]; // Buttons
 
 int sh = 0; // Shuttle value
 
-// RGB LED colors components
-uint8_t red = 100;
+uint8_t red = 100; // RGB LED colors components
 uint8_t green = 100;
 uint8_t blue = 100;
+uint8_t brightness = 160;
 
 bool bt[6] = {false, false, false, false, false, false}; // Button states
 bool dtr = false;                                        // Data to report
@@ -42,27 +43,45 @@ void isr()
 
 void onOutReport(uint32_t value);
 
-void changeLEDColor()
+void changeLEDColor(uint8_t r = red, uint8_t g = green, uint8_t b = blue)
 {
-  analogWrite(PIN_LED_R, red);
-  analogWrite(PIN_LED_G, green);
-  analogWrite(PIN_LED_B, blue);
+  analogWrite(PIN_LED_R, r);
+  analogWrite(PIN_LED_G, g);
+  analogWrite(PIN_LED_B, b);
 }
 
-void saveLEDColor()
+void changeLed2(uint8_t b = brightness)
 {
-  EEPROM.write(1, red & 0xFF);
-  EEPROM.write(2, green & 0xFF);
-  EEPROM.write(3, blue & 0xFF);
+  analogWrite(PIN_LED2, b);
+}
+
+void saveLEDColor(uint8_t r, uint8_t g, uint8_t b)
+{
+  red = r;
+  green = g;
+  blue = b;
+  EEPROM.write(1, r);
+  EEPROM.write(2, g);
+  EEPROM.write(3, b);
+}
+
+void saveBrightness(uint8_t b)
+{
+  brightness = b;
+  EEPROM.write(4, b);
 }
 
 void setup()
 {
+#ifdef DEBUG
+  Serial.begin(115200);
+#endif
   CustomHID.setOutCallback(onOutReport);
 
   pinMode(PIN_LED_R, OUTPUT);
   pinMode(PIN_LED_G, OUTPUT);
   pinMode(PIN_LED_B, OUTPUT);
+  pinMode(PIN_LED2, OUTPUT);
   attachInterrupt(digitalPinToInterrupt(PIN_ENC_A), isr, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PIN_ENC_B), isr, CHANGE);
   eb.setEncType(EB_STEP1);
@@ -71,7 +90,7 @@ void setup()
   btns[0].init(PIN_HALL);
   btns[0].attach(btn_hall_cb);
   btns[1].init(PIN_ENC_BT);
-  btns[1].setHoldTimeout(HOLD_FOR_LED_MS);
+  // btns[1].setHoldTimeout(HOLD_FOR_LED_MS);
   btns[1].attach(btn_enc_cb);
   btns[2].init(PIN_BT1);
   btns[2].attach(btn1_cb);
@@ -82,22 +101,23 @@ void setup()
   btns[5].init(PIN_BT4);
   btns[5].attach(btn4_cb);
 
-#ifdef DEBUG
-  Serial.begin(115200);
-#endif
-
   uint8_t eeprom_inited = 0;
   eeprom_inited = EEPROM.read(0);
   if (eeprom_inited != 0x78)
   {
     EEPROM.write(0, 0x78);
-    saveLEDColor();
+    saveLEDColor(red, green, blue);
+    saveBrightness(brightness);
   }
-
-  red = EEPROM.read(1);
-  green = EEPROM.read(2);
-  blue = EEPROM.read(3);
-  changeLEDColor();
+  else
+  {
+    red = EEPROM.read(1);
+    green = EEPROM.read(2);
+    blue = EEPROM.read(3);
+    brightness = EEPROM.read(4);
+  }
+  changeLEDColor(red, green, blue);
+  changeLed2(0);
 }
 
 void enc_cb()
@@ -183,13 +203,24 @@ void onOutReport(uint32_t value)
   switch (command)
   {
   case 0x01: // Set RGB LED color
+    changeLEDColor(data1, data2, data3);
+    break;
   case 0x02: // Set RGB LED color and save to EEPROM
-    red = data1;
-    green = data2;
-    blue = data3;
+    saveLEDColor(data1, data2, data3);
     changeLEDColor();
-    if (command == 0x02)
-      saveLEDColor();
+    break;
+  case 0x03: // Set RGB LED to saved color
+    changeLEDColor();
+    break;
+  case 0x04: // Set LED2 brightness
+    changeLed2(data1);
+    break;
+  case 0x05: // Set LED2 brightness and save to EEPROM
+    saveBrightness(data1);
+    changeLed2();
+    break;
+  case 0x06: // Set LED2 to saved brightness
+    changeLed2();
     break;
   default:
 #ifdef DEBUG
