@@ -1,3 +1,4 @@
 HIDControllerV2.bak
 .vscode/*.*
 .gitignore
+build/
