@@ -7,7 +7,8 @@ CustomHID_::CustomHID_()
   epType[1] = EP_TYPE_INTERRUPT_OUT;
   PluggableUSB().plug(this);
   outCallback = nullptr;
-  memset(featureReportBuffer, 0, sizeof(featureReportBuffer));
+  memset(featureReportBufferIn, 0, sizeof(featureReportBufferIn));
+  memset(featureReportBufferOut, 0, sizeof(featureReportBufferOut));
 }
 
 int CustomHID_::getInterface(uint8_t *interfaceCount)
@@ -57,7 +58,9 @@ bool CustomHID_::setup(USBSetup &setup)
       uint8_t buf[16];
       if (USB_RecvControl(buf, sizeof(buf)) == sizeof(buf))
       {
-        memcpy(featureReportBuffer, buf, sizeof(buf));
+        memcpy(featureReportBufferIn, buf, sizeof(buf));
+        if (featureCallback)
+          featureCallback(buf, 16);
       }
       return true;
     }
@@ -77,7 +80,7 @@ bool CustomHID_::setup(USBSetup &setup)
 
   if (setup.bmRequestType == REQUEST_DEVICETOHOST_CLASS_INTERFACE && setup.bRequest == HID_GET_REPORT && setup.wValueH == 3)
   {
-    return USB_SendControl(0, featureReportBuffer, sizeof(featureReportBuffer)) >= 0;
+    return USB_SendControl(0, featureReportBufferOut, sizeof(featureReportBufferOut)) >= 0;
   }
 
   return false;
@@ -97,12 +100,17 @@ void CustomHID_::setOutCallback(void (*cb)(uint32_t))
   outCallback = cb;
 }
 
+void CustomHID_::setFeatureCallback(void (*cb)(const uint8_t *data, size_t len))
+{
+  featureCallback = cb;
+}
+
 void CustomHID_::setFeatureReport(const uint8_t *data, size_t len)
 {
-  memcpy(featureReportBuffer, data, min(len, sizeof(featureReportBuffer)));
+  memcpy(featureReportBufferOut, data, min(len, sizeof(featureReportBufferOut)));
 }
 
 void CustomHID_::getFeatureReport(uint8_t *data, size_t len)
 {
-  memcpy(data, featureReportBuffer, min(len, sizeof(featureReportBuffer)));
+  memcpy(data, featureReportBufferIn, min(len, sizeof(featureReportBufferIn)));
 }

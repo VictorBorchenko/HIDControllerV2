@@ -3,7 +3,7 @@
 #include "CustomHID.h"
 
 // #define DEBUG
-
+#define VERSION 1
 #define PIN_BT1 5
 #define PIN_BT2 6
 #define PIN_BT3 7
@@ -19,6 +19,8 @@
 
 #define PIN_LED2 9 // Status LED
 
+#define LED_FLASH_MS 200
+
 // #define HOLD_FOR_LED_MS 3000
 
 CustomHID_ CustomHID;
@@ -33,6 +35,10 @@ uint8_t green = 100;
 uint8_t blue = 100;
 uint8_t brightness = 160;
 
+unsigned long led_flash_t = 0;
+bool led_flash = false;
+bool led_on = true;
+
 bool bt[6] = {false, false, false, false, false, false}; // Button states
 bool dtr = false;                                        // Data to report
 
@@ -40,8 +46,6 @@ void isr()
 {
   eb.tickISR(digitalRead(PIN_ENC_A), digitalRead(PIN_ENC_B));
 }
-
-void onOutReport(uint32_t value);
 
 void changeLEDColor(uint8_t r = red, uint8_t g = green, uint8_t b = blue)
 {
@@ -63,12 +67,14 @@ void saveLEDColor(uint8_t r, uint8_t g, uint8_t b)
   EEPROM.write(1, r);
   EEPROM.write(2, g);
   EEPROM.write(3, b);
+  updateFeatureReport();
 }
 
 void saveBrightness(uint8_t b)
 {
   brightness = b;
   EEPROM.write(4, b);
+  updateFeatureReport();
 }
 
 void setup()
@@ -76,8 +82,6 @@ void setup()
 #ifdef DEBUG
   Serial.begin(115200);
 #endif
-  CustomHID.setOutCallback(onOutReport);
-
   pinMode(PIN_LED_R, OUTPUT);
   pinMode(PIN_LED_G, OUTPUT);
   pinMode(PIN_LED_B, OUTPUT);
@@ -118,6 +122,10 @@ void setup()
   }
   changeLEDColor(red, green, blue);
   changeLed2(0);
+
+  CustomHID.setOutCallback(onOutReport);
+  CustomHID.setFeatureCallback(onFeatureReport);
+  updateFeatureReport();
 }
 
 void enc_cb()
@@ -212,14 +220,18 @@ void onOutReport(uint32_t value)
   case 0x03: // Set RGB LED to saved color
     changeLEDColor();
     break;
-  case 0x04: // Set LED2 brightness
+  case 0x04: // Flash mode
+    led_flash = data1 != 0;
+    if (!led_flash)
+      changeLEDColor();
+  case 0x05: // Set LED2 brightness
     changeLed2(data1);
     break;
-  case 0x05: // Set LED2 brightness and save to EEPROM
+  case 0x06: // Set LED2 brightness and save to EEPROM
     saveBrightness(data1);
     changeLed2();
     break;
-  case 0x06: // Set LED2 to saved brightness
+  case 0x07: // Set LED2 to saved brightness
     changeLed2();
     break;
   default:
@@ -229,6 +241,32 @@ void onOutReport(uint32_t value)
 #endif
     break;
   }
+}
+
+void onFeatureReport(const uint8_t *data, size_t len)
+{
+#ifdef DEBUG
+  Serial.print("Feature Report received: ");
+  for (size_t i = 0; i < len; i++)
+  {
+    Serial.print(data[i], HEX);
+    Serial.print(" ");
+  }
+  Serial.println();
+#endif
+}
+
+void updateFeatureReport()
+{
+  uint8_t featureReport[16];
+  featureReport[0] = VERSION;
+  featureReport[1] = red;
+  featureReport[2] = green;
+  featureReport[3] = blue;
+  featureReport[4] = brightness;
+  for (int i = 5; i < 16; i++)
+    featureReport[i] = 0; // Fill the rest with zeros
+  CustomHID.setFeatureReport(featureReport, sizeof(featureReport));
 }
 
 void loop()
@@ -248,5 +286,14 @@ void loop()
     // buttonMasks: [0x0001, 0x0002, 0x0100, 0x0200, 0x0400, 0x0800]
     CustomHID.sendReport(0x00, sh & 0xFF, (bt[5] ? 0x0800 : 0) | (bt[4] ? 0x0400 : 0) | (bt[3] ? 0x0200 : 0) | (bt[2] ? 0x0100 : 0) | (bt[1] ? 0x0002 : 0) | (bt[0] ? 0x0001 : 0));
     dtr = false;
+  }
+  if (led_flash)
+  {
+    if (led_flash_t < millis())
+    {
+      led_flash_t = millis() + LED_FLASH_MS;
+      led_on = !led_on;
+      changeLEDColor(led_on ? red : 0, led_on ? green : 0, led_on ? blue : 0);
+    }
   }
 }

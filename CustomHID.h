@@ -65,10 +65,13 @@ public:
   void setOutCallback(void (*cb)(uint32_t));
   void setFeatureReport(const uint8_t *data, size_t len);
   void getFeatureReport(uint8_t *data, size_t len);
+  void setFeatureCallback(void (*cb)(const uint8_t *data, size_t len));
 
 private:
   uint8_t epType[2];
   uint8_t reportBuffer[4];
-  uint8_t featureReportBuffer[16]; // для хранения Feature Report
+  uint8_t featureReportBufferIn[16]; // для хранения Feature Report
+  uint8_t featureReportBufferOut[16];
   void (*outCallback)(uint32_t);
+  void (*featureCallback)(const uint8_t *data, size_t len) = nullptr;
 };
