@@ -47,6 +47,12 @@ const uint8_t customHIDReportDescriptor[] PROGMEM = {
 #define HID_SET_REPORT 0x09
 #define HID_REPORT_DESCRIPTOR_TYPE 0x22
 
+#ifndef EPTYPE1
+#define EPTYPE1 7
+#define EPTYPE0 6
+#define EPDIR 0
+#endif
+
 // Custom HID class
 class CustomHID_ : public PluggableUSBModule
 {
