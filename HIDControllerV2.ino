@@ -284,7 +284,7 @@ void loop()
     Serial.println("Data changed.");
 #endif
     // buttonMasks: [0x0010, 0x0020, 0x0040, 0x0080, 0x0100, 0x8000]
-    CustomHID.sendReport(0x00, sh & 0xFF, (bt[5] ? 0x8000 : 0) | (bt[4] ? 0x0010 : 0) | (bt[3] ? 0x0020 : 0) | (bt[2] ? 0x0040 : 0) | (bt[1] ? 0x0080 : 0) | (bt[0] ? 0x0001 : 0));
+    CustomHID.sendReport(0x00, sh & 0xFF, (bt[5] ? 0x0001 : 0) | (bt[4] ? 0x0010 : 0) | (bt[3] ? 0x0020 : 0) | (bt[2] ? 0x0040 : 0) | (bt[1] ? 0x0080 : 0) | (bt[0] ? 0x0100 : 0));
 
     dtr = false;
   }
