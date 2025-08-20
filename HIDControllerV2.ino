@@ -74,10 +74,10 @@ void changeLEDColor(uint8_t r = red, uint8_t g = green, uint8_t b = blue)
 
 void changeWB(uint8_t k_r, uint8_t k_g, uint8_t k_b)
 {
-  // WB correction: коэффициенты 0..255, преобразуем в 0.3 - 2.0
-  k_red = 0.3 + 1.7 * k_r / 255.0;
-  k_green = 0.3 + 1.7 * k_g / 255.0;
-  k_blue = 0.3 + 1.7 * k_b / 255.0;
+  // WB correction: коэффициенты 0..255, преобразуем в 0.1 - 1.0
+  k_red = 0.1 + 0.9 * k_r / 255.0;
+  k_green = 0.1 + 0.9 * k_g / 255.0;
+  k_blue = 0.1 + 0.9 * k_b / 255.0;
   changeLEDColor(red, green, blue);
   saveWB();
 }
@@ -298,9 +298,9 @@ void updateFeatureReport()
   featureReport[3] = blue;
   featureReport[4] = brightness;
   // WB coefficients scaled to 0..255
-  featureReport[5] = (uint8_t)round((255.0 * (k_red - 0.3) / 1.7));
-  featureReport[6] = (uint8_t)round((255.0 * (k_green - 0.3) / 1.7));
-  featureReport[7] = (uint8_t)round((255.0 * (k_blue - 0.3) / 1.7));
+  featureReport[5] = (uint8_t)round((255.0 * (k_red - 0.1) / 0.9));
+  featureReport[6] = (uint8_t)round((255.0 * (k_green - 0.1) / 0.9));
+  featureReport[7] = (uint8_t)round((255.0 * (k_blue - 0.1) / 0.9));
   for (int i = 8; i < 16; i++)
     featureReport[i] = 0; // Fill the rest with zeros
   CustomHID.setFeatureReport(featureReport, sizeof(featureReport));
