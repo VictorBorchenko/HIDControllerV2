@@ -34,6 +34,9 @@ uint8_t red = 100; // RGB LED colors components
 uint8_t green = 100;
 uint8_t blue = 100;
 uint8_t brightness = 160;
+volatile float k_red = 1.0;
+volatile float k_green = 1.0;
+volatile float k_blue = 1.0;
 
 unsigned long led_flash_t = 0;
 bool led_flash = false;
@@ -47,11 +50,36 @@ void isr()
   eb.tickISR(digitalRead(PIN_ENC_A), digitalRead(PIN_ENC_B));
 }
 
+void saveWB()
+{
+  EEPROM.put(5, k_red);
+  EEPROM.put(9, k_green);
+  EEPROM.put(13, k_blue);
+  updateFeatureReport();
+}
+
+void loadWB()
+{
+  EEPROM.get(5, k_red);
+  EEPROM.get(9, k_green);
+  EEPROM.get(13, k_blue);
+}
+
 void changeLEDColor(uint8_t r = red, uint8_t g = green, uint8_t b = blue)
 {
-  analogWrite(PIN_LED_R, r);
-  analogWrite(PIN_LED_G, g);
-  analogWrite(PIN_LED_B, b);
+  analogWrite(PIN_LED_R, k_red * r);
+  analogWrite(PIN_LED_G, k_green * g);
+  analogWrite(PIN_LED_B, k_blue * b);
+}
+
+void changeWB(uint8_t k_r, uint8_t k_g, uint8_t k_b)
+{
+  // WB correction: коэффициенты 0..255, преобразуем в 0.3 - 2.0
+  k_red = 0.3 + 1.7 * k_r / 255.0;
+  k_green = 0.3 + 1.7 * k_g / 255.0;
+  k_blue = 0.3 + 1.7 * k_b / 255.0;
+  changeLEDColor(red, green, blue);
+  saveWB();
 }
 
 void changeLed2(uint8_t b = brightness)
@@ -107,11 +135,12 @@ void setup()
 
   uint8_t eeprom_inited = 0;
   eeprom_inited = EEPROM.read(0);
-  if (eeprom_inited != 0x78)
+  if (eeprom_inited != 0x79)
   {
-    EEPROM.write(0, 0x78);
+    EEPROM.write(0, 0x79);
     saveLEDColor(red, green, blue);
     saveBrightness(brightness);
+    saveWB();
   }
   else
   {
@@ -119,6 +148,7 @@ void setup()
     green = EEPROM.read(2);
     blue = EEPROM.read(3);
     brightness = EEPROM.read(4);
+    loadWB();
   }
   changeLEDColor(red, green, blue);
   changeLed2(0);
@@ -234,6 +264,9 @@ void onOutReport(uint32_t value)
   case 0x07: // Set LED2 to saved brightness
     changeLed2();
     break;
+  case 0x08: // WB correction
+    changeWB(data1, data2, data3);
+    break;
   default:
 #ifdef DEBUG
     Serial.print("Unknown command: ");
@@ -264,7 +297,11 @@ void updateFeatureReport()
   featureReport[2] = green;
   featureReport[3] = blue;
   featureReport[4] = brightness;
-  for (int i = 5; i < 16; i++)
+  // WB coefficients scaled to 0..255
+  featureReport[5] = (uint8_t)round((255.0 * (k_red - 0.3) / 1.7));
+  featureReport[6] = (uint8_t)round((255.0 * (k_green - 0.3) / 1.7));
+  featureReport[7] = (uint8_t)round((255.0 * (k_blue - 0.3) / 1.7));
+  for (int i = 8; i < 16; i++)
     featureReport[i] = 0; // Fill the rest with zeros
   CustomHID.setFeatureReport(featureReport, sizeof(featureReport));
 }
