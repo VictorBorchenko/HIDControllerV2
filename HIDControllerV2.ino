@@ -116,7 +116,7 @@ void setup()
   pinMode(PIN_LED2, OUTPUT);
   attachInterrupt(digitalPinToInterrupt(PIN_ENC_A), isr, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PIN_ENC_B), isr, CHANGE);
-  eb.setEncType(EB_STEP1);
+  eb.setEncType(EB_STEP2);
   eb.setEncISR(1);
 
   btns[0].init(PIN_HALL);
