@@ -10,12 +10,12 @@
 #define PIN_BT4 8
 #define PIN_HALL 12
 #define PIN_ENC_BT 4
-#define PIN_ENC_A 2
-#define PIN_ENC_B 3
+#define PIN_ENC_A 3
+#define PIN_ENC_B 2
 
-#define PIN_LED_R 10
-#define PIN_LED_G 11
-#define PIN_LED_B 13
+#define PIN_LED_R 13
+#define PIN_LED_G 6    // БЫЛО 11 -> перенесено на D6 (swap D11<->D6)
+#define PIN_LED_B 10
 
 #define PIN_LED2 9 // Status LED
 
@@ -45,6 +45,23 @@ bool led_on = true;
 bool bt[6] = {false, false, false, false, false, false}; // Button states
 bool dtr = false;                                        // Data to report
 
+// === Высокочастотный ШИМ на D13 (Timer4): Fast PWM 8-бит ~62.5 кГц ===
+// Добавлено включение канала D для D6 (OC4D)
+static inline void setupPWM_D13() {
+  TCCR4A = _BV(PWM4A) | _BV(COM4A1);        // OC4A -> D13
+  TCCR4C = _BV(PWM4D) | _BV(COM4D1);        // OC4D -> D6
+  TCCR4B = _BV(CS40);                       // прескалер 1
+  TCCR4D = 0;                               // Fast PWM A
+  OCR4C  = 255;                             // TOP=255
+}
+
+// === Высокочастотный ШИМ на D9/D10 (Timer1): Phase Correct 8-бит ~31.25 кГц ===
+static inline void setupPWM_T1_D9_D10() {
+  // WGM10=1 (Phase Correct 8-bit), COM1A1/COM1B1=1 (неинвертирующий), CS10=1 (делитель 1)
+  TCCR1A = _BV(WGM10) | _BV(COM1A1) | _BV(COM1B1);
+  TCCR1B = _BV(CS10);
+}
+
 void isr()
 {
   eb.tickISR(digitalRead(PIN_ENC_A), digitalRead(PIN_ENC_B));
@@ -68,7 +85,7 @@ void loadWB()
 void changeLEDColor(uint8_t r = red, uint8_t g = green, uint8_t b = blue)
 {
   analogWrite(PIN_LED_R, k_red * r);
-  analogWrite(PIN_LED_G, k_green * g);
+  analogWrite(PIN_LED_G, k_green * g);   // теперь вывод G на D6
   analogWrite(PIN_LED_B, k_blue * b);
 }
 
@@ -111,12 +128,17 @@ void setup()
   Serial.begin(115200);
 #endif
   pinMode(PIN_LED_R, OUTPUT);
-  pinMode(PIN_LED_G, OUTPUT);
+  pinMode(PIN_LED_G, OUTPUT);   // D6
   pinMode(PIN_LED_B, OUTPUT);
   pinMode(PIN_LED2, OUTPUT);
+
+  // Поднять частоты ШИМ
+  setupPWM_T1_D9_D10(); // D9, D10 -> ~31.25 кГц (Timer1)
+  setupPWM_D13();       // D13 и D6 -> ~62.5  кГц (Timer4)
+
   attachInterrupt(digitalPinToInterrupt(PIN_ENC_A), isr, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PIN_ENC_B), isr, CHANGE);
-  eb.setEncType(EB_STEP2);
+  eb.setEncType(EB_STEP1);
   eb.setEncISR(1);
 
   btns[0].init(PIN_HALL);
