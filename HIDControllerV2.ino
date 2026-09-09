@@ -201,6 +201,8 @@ void enc_cb()
 
 void btn_enc_cb()
 {
+  if (bt[0])
+    return; // block encoder at zero position
   btn_cb(1);
   // switch (btns[1].action())
   // {
