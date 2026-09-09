@@ -191,6 +191,8 @@ void setup()
 
 void enc_cb()
 {
+  if (bt[0])
+    return; // block encoder at zero position
   sh = (sh + eb.dir()) & 0xff;
   dtr = true;
 #ifdef DEBUG
