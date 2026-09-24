@@ -1,6 +1,7 @@
 #include <EncButton.h>
 #include <EEPROM.h>
 #include "CustomHID.h"
+#include <util/atomic.h>
 #if defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega1284P__) || defined(__AVR_ATmega2560__)
 #include <avr/io.h>
 #endif
@@ -31,7 +32,8 @@ CustomHID_ CustomHID;
 VirtEncoder eb; // Encoder
 Button btns[6]; // Buttons
 
-int sh = 0; // Shuttle value
+int32_t enc_sent = 0; // сколько шагов eb.counter уже учтено в sh
+int sh = 0;           // Shuttle value
 
 uint8_t red = 100; // RGB LED colors components
 uint8_t green = 100;
@@ -145,6 +147,9 @@ void setup()
   setupPWM_T1_D9_D10(); // D9, D10 -> ~31.25 кГц (Timer1)
   setupPWM_D13();       // D13 и D6 -> ~62.5  кГц (Timer4)
 
+  pinMode(PIN_ENC_A, INPUT_PULLUP);
+  pinMode(PIN_ENC_B, INPUT_PULLUP);
+
   attachInterrupt(digitalPinToInterrupt(PIN_ENC_A), isr, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PIN_ENC_B), isr, CHANGE);
   eb.setEncType(EB_STEP1);
@@ -191,14 +196,19 @@ void setup()
 
 void enc_cb()
 {
+  int32_t cnt;
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { cnt = eb.counter; }
   if (bt[0])
-    return; // block encoder at zero position
-  sh = (sh + eb.dir()) & 0xff;
+  {
+    enc_sent = cnt; // блокировка на магните, как сейчас
+    return;
+  }
+  if (cnt == enc_sent)
+    return;
+  int8_t step = cnt > enc_sent ? 1 : -1;
+  enc_sent += step;
+  sh = (sh + step) & 0xff;
   dtr = true;
-#ifdef DEBUG
-  Serial.print("Shuttle: ");
-  Serial.println(sh);
-#endif
 }
 
 void btn_enc_cb()
