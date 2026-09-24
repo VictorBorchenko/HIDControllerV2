@@ -355,8 +355,7 @@ void loop()
   for (int i = 0; i < 6; i++)
     btns[i].tick();
 
-  if (eb.turn())
-    enc_cb();
+  enc_cb();
 
   if (dtr)
   {
